@@ -8,14 +8,19 @@ import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
 import com.nvllz.stepsy.R
-import com.nvllz.stepsy.util.Util
+import com.nvllz.stepsy.util.preferences.PreferenceHelper
 
 class WidgetStepsPlainProvider : AppWidgetProvider() {
+    private lateinit var preferenceHelper: PreferenceHelper
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+
+        preferenceHelper = PreferenceHelper.getInstance(context)
+    }
 
     companion object {
         fun updateWidget(context: Context, steps: Int) {
-            Util.init(context)
-
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val widgetComponent = ComponentName(context, WidgetStepsPlainProvider::class.java)
             val remoteViews = RemoteViews(context.packageName, R.layout.widget_steps_plain)
@@ -43,10 +48,7 @@ class WidgetStepsPlainProvider : AppWidgetProvider() {
     }
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        Util.init(context)
-
-        val prefs = context.getSharedPreferences("com.nvllz.stepsy_preferences", Context.MODE_PRIVATE)
-        val steps = prefs.getInt("STEPS", 0)
+        val steps = PreferenceHelper.getInstance(context).steps
 
         updateWidget(context, steps)
     }

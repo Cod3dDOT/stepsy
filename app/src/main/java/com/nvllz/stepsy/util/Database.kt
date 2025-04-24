@@ -10,7 +10,6 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.database.Cursor.*
 import android.util.Log
-import java.util.*
 
 /**
  * Created by tiefensuche on 19.10.16, modified by nvllz in April 2025
@@ -63,9 +62,7 @@ internal class Database private constructor(context: Context) : SQLiteOpenHelper
         val entries = mutableListOf<Entry>()
         val cursor = readableDatabase.query(HISTORY_TABLE, null, "timestamp >= ? AND timestamp <= ?", arrayOf(minDate.toString(), maxDate.toString()), null, null, null)
         while (cursor.moveToNext()) {
-            val cal = Util.calendar
-            cal.timeInMillis = cursor.getLong(0)
-            entries.add(Entry(cal.timeInMillis, cursor.getInt(1)))
+            entries.add(Entry(cursor.getLong(0), cursor.getInt(1)))
         }
         cursor.close()
         return entries

@@ -11,7 +11,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -24,7 +23,6 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.ResultReceiver
-import androidx.preference.PreferenceManager
 import androidx.core.app.NotificationCompat
 import android.text.format.DateUtils
 import android.util.Log
@@ -33,26 +31,31 @@ import androidx.core.content.ContextCompat
 import com.nvllz.stepsy.R
 import com.nvllz.stepsy.ui.MainActivity
 import com.nvllz.stepsy.util.Database
-import com.nvllz.stepsy.util.Util
+import com.nvllz.stepsy.util.StepsHelper
 import java.util.*
-import androidx.core.content.edit
 import com.nvllz.stepsy.ui.WidgetStepsProvider
 import com.nvllz.stepsy.ui.WidgetStepsCompactProvider
 import com.nvllz.stepsy.ui.WidgetStepsPlainProvider
+import com.nvllz.stepsy.util.CalendarHelper
+import com.nvllz.stepsy.util.preferences.PreferenceHelper
 
 internal class MotionService : Service() {
-    private lateinit var sharedPreferences: SharedPreferences
-    private var mTodaysSteps: Int = 0
+    private var mPaused: Boolean = false
+    private var mStepsToday: Int = 0
     private var mLastSteps = -1
     private var mCurrentDate: Long = 0
+
     private var receiver: ResultReceiver? = null
     private lateinit var mListener: SensorEventListener
     private lateinit var mNotificationManager: NotificationManager
     private lateinit var mBuilder: NotificationCompat.Builder
-    private var isCountingPaused = false
 
     private val pauseChannelId = "com.nvllz.stepsy.PAUSE_CHANNEL_ID"
     private val pauseNotificationId = 3844
+
+    private lateinit var preferenceHelper: PreferenceHelper
+    private lateinit var calendarHelper: CalendarHelper
+    private lateinit var stepsHelper: StepsHelper
 
     override fun onBind(intent: Intent): IBinder? {
         return null
@@ -62,11 +65,13 @@ internal class MotionService : Service() {
         Log.d(TAG, "Creating MotionService")
         startService()
 
-        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-        mCurrentDate = sharedPreferences.getLong(KEY_DATE, Util.calendar.timeInMillis)
-        mTodaysSteps = sharedPreferences.getInt(KEY_STEPS, 0)
+        preferenceHelper = PreferenceHelper.getInstance(this)
+        calendarHelper = CalendarHelper(preferenceHelper)
+        stepsHelper = StepsHelper(preferenceHelper)
 
-        isCountingPaused = sharedPreferences.getBoolean(KEY_IS_PAUSED, false)
+        mCurrentDate = preferenceHelper.stepsDate
+        mStepsToday = preferenceHelper.steps
+        mPaused = preferenceHelper.paused
 
         val mSensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
             ?: throw IllegalStateException("Could not get sensor service")
@@ -104,25 +109,25 @@ internal class MotionService : Service() {
     }
 
     private fun handleEvent(value: Int) {
-        if (!isCountingPaused) {
-            if (mLastSteps == -1 || value < mLastSteps) {
-                mLastSteps = value
-                return
-            }
-
-            val delta = value - mLastSteps
-            mTodaysSteps += delta
+        if (mPaused) {
             mLastSteps = value
-
-            handleStepUpdate()
-
-            // reset the delayed write runnable
-            handler.removeCallbacks(delayedWriteRunnable)
-            handler.postDelayed(delayedWriteRunnable, 10_000)
-
-        } else {
-            mLastSteps = value
+            return
         }
+
+        if (mLastSteps == -1 || value < mLastSteps) {
+            mLastSteps = value
+            return
+        }
+
+        val delta = value - mLastSteps
+        mStepsToday += delta
+        mLastSteps = value
+
+        handleStepUpdate()
+
+        // reset the delayed write runnable
+        handler.removeCallbacks(delayedWriteRunnable)
+        handler.postDelayed(delayedWriteRunnable, 10_000)
     }
 
     private var lastWriteTime: Long = 0
@@ -131,32 +136,32 @@ internal class MotionService : Service() {
         get() = if (isBatterySavingEnabled(this)) 20_000L else 10_000L
 
     private fun handleStepUpdate(delayedTrigger: Boolean = false) {
-        val currentDate = Util.calendar.timeInMillis
+        val currentDate = calendarHelper.getTime()
 
         if (!DateUtils.isToday(mCurrentDate)) {
-            Database.getInstance(this).addEntry(mCurrentDate, mTodaysSteps)
-            mTodaysSteps = 0
+            Database.getInstance(this).addEntry(mCurrentDate, mStepsToday)
+            mStepsToday = 0
             mCurrentDate = currentDate
             mLastSteps = -1
-            sharedPreferences.edit {
-                putInt(KEY_STEPS, mTodaysSteps)
-                putLong(KEY_DATE, mCurrentDate)
-            }
+
+            preferenceHelper.steps = mStepsToday
+            preferenceHelper.stepsDate = mCurrentDate
         }
 
-        val currentTime = System.currentTimeMillis()
+        val currentTime = calendarHelper.getTime()
         if (currentTime - lastWriteTime > writeInterval) {
-            Database.getInstance(this).addEntry(mCurrentDate, mTodaysSteps)
-            sharedPreferences.edit {
-                putInt(KEY_STEPS, mTodaysSteps)
-            }
+            Database.getInstance(this).addEntry(mCurrentDate, mStepsToday)
+            preferenceHelper.steps = mStepsToday
             lastWriteTime = currentTime
         }
 
         if (currentTime - lastWidgetUpdateTime > (writeInterval * 2) || delayedTrigger) {
-            WidgetStepsProvider.updateWidget(applicationContext, mTodaysSteps)
-            WidgetStepsCompactProvider.updateWidget(applicationContext, mTodaysSteps)
-            WidgetStepsPlainProvider.updateWidget(applicationContext, mTodaysSteps)
+            val distance = stepsHelper.stepsToDistance(mStepsToday)
+            val distanceUnit = stepsHelper.getDistanceUnitString()
+
+            WidgetStepsProvider.updateWidget(applicationContext, mStepsToday, distance, distanceUnit)
+            WidgetStepsCompactProvider.updateWidget(applicationContext, mStepsToday, distance, distanceUnit)
+            WidgetStepsPlainProvider.updateWidget(applicationContext, mStepsToday)
             lastWidgetUpdateTime = currentTime
         }
 
@@ -164,9 +169,9 @@ internal class MotionService : Service() {
     }
 
     private fun sendUpdate() {
-        if (isCountingPaused) {
+        if (mPaused) {
             sendPauseNotification()
-            sendBundleUpdate(isCountingPaused)
+            sendBundleUpdate(mPaused)
             return
         } else {
             dismissPauseNotification()
@@ -174,29 +179,29 @@ internal class MotionService : Service() {
 
         val stepsPlural = resources.getQuantityString(
             R.plurals.steps_text,
-            mTodaysSteps,
-            mTodaysSteps
+            mStepsToday,
+            mStepsToday
         )
 
         val notificationText = String.format(
             Locale.getDefault(),
             getString(R.string.steps_format),
             stepsPlural,
-            Util.stepsToDistance(mTodaysSteps),
-            Util.getDistanceUnitString()
+            stepsHelper.stepsToDistance(mStepsToday),
+            stepsHelper.getDistanceUnitString()
         )
 
 
         mBuilder.setContentText(notificationText)
         mNotificationManager.notify(FOREGROUND_ID, mBuilder.build())
 
-        sendBundleUpdate(isCountingPaused)
+        sendBundleUpdate(mPaused)
     }
 
     private fun sendBundleUpdate(paused: Boolean = false) {
         receiver?.let {
             val bundle = Bundle().apply {
-                putInt(KEY_STEPS, mTodaysSteps)
+                putInt(KEY_STEPS, mStepsToday)
                 if (paused) putBoolean(KEY_IS_PAUSED, true)
             }
             it.send(0, bundle)
@@ -251,26 +256,26 @@ internal class MotionService : Service() {
                     it.getParcelableExtra(MainActivity.RECEIVER_TAG)
                 }
                 ACTION_PAUSE_COUNTING -> {
-                    isCountingPaused = true
-                    sharedPreferences.edit { putBoolean(KEY_IS_PAUSED, true) }
+                    mPaused = true
+                    preferenceHelper.paused = true
                     Toast.makeText(this, R.string.step_counting_paused, Toast.LENGTH_SHORT).show()
                 }
                 ACTION_RESUME_COUNTING -> {
-                    isCountingPaused = false
-                    sharedPreferences.edit { putBoolean(KEY_IS_PAUSED, false) }
+                    mPaused = false
+                    preferenceHelper.paused = false
                     Toast.makeText(this, R.string.step_counting_resumed, Toast.LENGTH_SHORT).show()
                 }
             }
 
             // handle forced update with new values
             if (it.hasExtra("FORCE_UPDATE")) {
-                mTodaysSteps = it.getIntExtra(KEY_STEPS, mTodaysSteps)
+                mStepsToday = it.getIntExtra(KEY_STEPS, mStepsToday)
                 mCurrentDate = it.getLongExtra(KEY_DATE, mCurrentDate)
                 mLastSteps = -1 // reset step counter to avoid incorrect delta calculations
-                sharedPreferences.edit {
-                    putInt(KEY_STEPS, mTodaysSteps)
-                    putLong(KEY_DATE, mCurrentDate)
-                }
+
+                preferenceHelper.steps = mStepsToday
+                preferenceHelper.stepsDate = mCurrentDate
+
                 handleStepUpdate()
             }
 
@@ -342,11 +347,13 @@ internal class MotionService : Service() {
     companion object {
         private val TAG = MotionService::class.java.simpleName
         internal const val ACTION_SUBSCRIBE = "ACTION_SUBSCRIBE"
-        internal const val KEY_STEPS = "STEPS"
-        internal const val KEY_DATE = "DATE"
-        internal const val KEY_IS_PAUSED = "IS_PAUSED"
         internal const val ACTION_PAUSE_COUNTING = "ACTION_PAUSE_COUNTING"
         internal const val ACTION_RESUME_COUNTING = "ACTION_RESUME_COUNTING"
+
+        internal const val KEY_IS_PAUSED = "IS_PAUSED"
+        internal const val KEY_STEPS = "STEPS"
+        internal const val KEY_DATE = "DATE"
+
         private const val FOREGROUND_ID = 3843
         private const val STEP_CHANNEL_ID = "com.nvllz.stepsy.STEP_CHANNEL_ID"
     }

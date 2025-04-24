@@ -4,46 +4,28 @@
 
 package com.nvllz.stepsy.ui
 
-import android.content.Intent
-import android.net.Uri
+import android.content.SharedPreferences
 import android.os.Bundle
-import android.text.format.DateUtils
-import android.util.Log
 import android.view.MenuItem
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
-import androidx.core.content.edit
-import androidx.core.os.LocaleListCompat
-import androidx.preference.ListPreference
-import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.PreferenceManager
 import com.nvllz.stepsy.R
-import com.nvllz.stepsy.service.MotionService
-import com.nvllz.stepsy.service.MotionService.Companion.KEY_DATE
-import com.nvllz.stepsy.service.MotionService.Companion.KEY_STEPS
-import com.nvllz.stepsy.util.Database
-import com.nvllz.stepsy.util.Util
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.lang.Exception
-import java.util.Date
-import java.util.Locale
 import androidx.core.graphics.drawable.toDrawable
-import androidx.preference.EditTextPreference
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
-
+import androidx.core.os.LocaleListCompat
+import com.nvllz.stepsy.util.ThemeHelper
+import com.nvllz.stepsy.util.preferences.PreferenceHelper
+import com.nvllz.stepsy.util.preferences.models.ThemeMode
+import com.nvllz.stepsy.util.preferences.models.ThemeStyle
+import com.nvllz.stepsy.util.preferences.models.UnitSystem
+import java.util.Locale
 
 class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
-
-        Util.init(this)
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setDisplayShowHomeEnabled(true)
@@ -57,6 +39,7 @@ class SettingsActivity : AppCompatActivity() {
                 .replace(R.id.settings, SettingsFragment())
                 .commit()
         }
+
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -69,219 +52,55 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    class SettingsFragment : PreferenceFragmentCompat() {
-
-        private lateinit var importLauncher: ActivityResultLauncher<Intent>
-        private lateinit var exportLauncher: ActivityResultLauncher<Intent>
+    class SettingsFragment : PreferenceFragmentCompat(), SharedPreferences.OnSharedPreferenceChangeListener {
+        private lateinit var preferenceHelper: PreferenceHelper
+        private lateinit var themeHelper: ThemeHelper
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
 
-            val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            preferenceHelper = PreferenceHelper.getInstance(requireContext())
+            themeHelper = ThemeHelper.getInstance(requireContext(), preferenceHelper)
+        }
 
-            importLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-                if (result.resultCode == RESULT_OK) {
-                    result.data?.data?.let { uri -> import(uri) }
-                }
-            }
+        override fun onResume() {
+            super.onResume()
+            preferenceScreen.sharedPreferences?.registerOnSharedPreferenceChangeListener(this)
+        }
 
-            exportLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-                if (result.resultCode == RESULT_OK) {
-                    result.data?.data?.let { uri -> export(uri) }
-                }
-            }
+        override fun onPause() {
+            super.onPause()
+            preferenceScreen.sharedPreferences?.unregisterOnSharedPreferenceChangeListener(this)
+        }
 
-            val currentLocales = AppCompatDelegate.getApplicationLocales()
-            val currentLanguage = when {
-                currentLocales.isEmpty -> "system"
-                else -> currentLocales[0]?.language ?: "system"
-            }
-
-            findPreference<EditTextPreference>("height")?.setOnPreferenceChangeListener { _, newValue ->
-                try {
-                    val height = newValue.toString()
-                    if (height.toInt() in 1..250) {
-                        Util.height = height.toInt()
-                        prefs.edit { putString("height", height) }
-                        true
-                    } else false
-                } catch (_: NumberFormatException) {
-                    Toast.makeText(context, R.string.enter_valid_number, Toast.LENGTH_SHORT).show()
-                    false
-                }
-            }
-
-            findPreference<EditTextPreference>("weight")?.setOnPreferenceChangeListener { _, newValue ->
-                try {
-                    val weight = newValue.toString()
-                    if (weight.toInt() in 1..500) {
-                        Util.weight = weight.toInt()
-                        prefs.edit { putString("weight", weight) }
-                        true
-                    } else false
-                } catch (_: NumberFormatException) {
-                    Toast.makeText(context, R.string.enter_valid_number, Toast.LENGTH_SHORT).show()
-                    false
-                }
-            }
-
-            findPreference<ListPreference>("unit_system")?.setOnPreferenceChangeListener { _, newValue ->
-                Util.distanceUnit = if (newValue.toString() == "imperial") Util.DistanceUnit.IMPERIAL else Util.DistanceUnit.METRIC
-                prefs.edit { putString("unit_system", newValue.toString()) }
-                true
-            }
-
-            findPreference<ListPreference>("date_format")?.setOnPreferenceChangeListener { _, newValue ->
-                val dateFormat = newValue.toString()
-                Util.dateFormatString = dateFormat
-                prefs.edit { putString("date_format", dateFormat) }
-                true
-            }
-
-            findPreference<ListPreference>("first_day_of_week")?.setOnPreferenceChangeListener { _, newValue ->
-                val value = newValue.toString().toInt()
-                Util.firstDayOfWeek = value
-                prefs.edit { putString("first_day_of_week", value.toString()) }
-
-                val intent = Intent(requireContext(), MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(intent)
-                activity?.finish()
-                true
-            }
-
-            findPreference<ListPreference>("language")?.let { languagePref ->
-                languagePref.value = currentLanguage
-                languagePref.setOnPreferenceChangeListener { _, newValue ->
-                    val localeCode = newValue.toString()
-                    val newLocale = if (localeCode == "system") {
-                        LocaleListCompat.getEmptyLocaleList()
-                    } else {
-                        LocaleListCompat.create(Locale(localeCode))
-                    }
-                    AppCompatDelegate.setApplicationLocales(newLocale)
-                    restartApp()
-                    true
-                }
-            }
-
-            findPreference<ListPreference>("theme")?.setOnPreferenceChangeListener { _, newValue ->
-                Util.applyTheme(newValue.toString())
-                true
-            }
-
-            findPreference<Preference>("import")?.setOnPreferenceClickListener {
-                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "text/*"
-                }
-                importLauncher.launch(intent)
-                true
-            }
-
-            findPreference<Preference>("export")?.setOnPreferenceClickListener {
-                val dateFormat = java.text.SimpleDateFormat("yyyyMMdd-HHmmSS", Locale.getDefault())
-                val currentDate = dateFormat.format(Date())
-                val fileName = "${currentDate}_stepsy.csv"
-
-                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "text/*"
-                    putExtra(Intent.EXTRA_TITLE, fileName)
-                }
-                exportLauncher.launch(intent)
-                true
+        override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
+            when (key) {
+                getString(ThemeMode.key()) -> updateTheme()
+                getString(ThemeStyle.key()) -> updateTheme()
+                getString(UnitSystem.key()) -> updateUnitSystem()
+                getString(R.string.key_app_language) -> updateLanguage()
             }
         }
 
-        private fun import(uri: Uri) {
-            val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
-            val db = Database.getInstance(requireContext())
-            val today = Util.calendar.timeInMillis
-            var todaySteps = 0
-            var entries = 0
-            var failed = 0
-
-            try {
-                requireContext().contentResolver.openFileDescriptor(uri, "r")?.use {
-                    FileInputStream(it.fileDescriptor).bufferedReader().use { reader ->
-                        for (line in reader.readLines()) {
-                            entries++
-                            try {
-                                val split = line.split(",")
-                                val timestamp = split[0].toLong()
-                                val steps = split[1].toInt()
-                                if (DateUtils.isToday(timestamp)) {
-                                    todaySteps = steps
-                                }
-                                db.addEntry(timestamp, steps)
-                            } catch (ex: Exception) {
-                                Log.e("SettingsFragment", "Cannot import entry", ex)
-                                failed++
-                            }
-                        }
-                    }
-
-                    if (todaySteps > 0) {
-                        prefs.edit {
-                            putInt(KEY_STEPS, todaySteps)
-                            putLong(KEY_DATE, today)
-                        }
-                        val intent = Intent(requireContext(), MotionService::class.java).apply {
-                            putExtra("FORCE_UPDATE", true)
-                            putExtra(KEY_STEPS, todaySteps)
-                            putExtra(KEY_DATE, today)
-                        }
-                        requireContext().startService(intent)
-                    }
-
-                    val successCount = entries - failed
-                    val todaySetText = if (todaySteps > 0) {
-                        getString(R.string.today_steps_set, todaySteps)
-                    } else {
-                        ""
-                    }
-
-                    val resultText = getString(R.string.import_result, successCount, failed, todaySetText)
-
-                    Toast.makeText(context, resultText, Toast.LENGTH_LONG).show()
-
-                    restartApp()
-                }
-            } catch (ex: Exception) {
-                Log.e("SettingsFragment", "Cannot open file", ex)
-                Toast.makeText(context, getString(R.string.cannot_open_file), Toast.LENGTH_SHORT).show()
-            }
+        private fun updateTheme() {
+            themeHelper.applyThemeMode()
+            themeHelper.applyThemeStyle(this.activity as SettingsActivity)
         }
 
-        private fun export(uri: Uri) {
-            val db = Database.getInstance(requireContext())
-            try {
-                requireContext().contentResolver.openFileDescriptor(uri, "w")?.use {
-                    FileOutputStream(it.fileDescriptor).bufferedWriter().use { writer ->
-                        var entries = 0
-                        for (entry in db.getEntries(db.firstEntry, db.lastEntry)) {
-                            writer.write("${entry.timestamp},${entry.steps}\r\n")
-                            entries++
-                        }
+        private fun updateUnitSystem() {
 
-                        val resultText = getString(R.string.export_result, entries)
-                        Toast.makeText(context, resultText, Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } catch (ex: Exception) {
-                Log.e("SettingsFragment", "Cannot write file", ex)
-                Toast.makeText(context, getString(R.string.cannot_write_file), Toast.LENGTH_SHORT).show()
-            }
         }
 
-        private fun restartApp() {
-            val intent = Intent(requireContext(), MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        private fun updateLanguage () {
+            val localeCode = preferenceHelper.language
+
+            val newLocale = when (localeCode) {
+                "system" -> LocaleListCompat.getEmptyLocaleList() // Use system's default language
+                else -> LocaleListCompat.create(Locale(localeCode)) // Create a new locale from the selected language
             }
-            startActivity(intent)
-            activity?.finishAffinity()
+
+            // Apply the new locale
+            AppCompatDelegate.setApplicationLocales(newLocale)
         }
     }
 }

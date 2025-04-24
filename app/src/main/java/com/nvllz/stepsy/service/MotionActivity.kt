@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-package com.nvllz.stepsy
+package com.nvllz.stepsy.service
 
 /**
  * This class represents a motion activity started by the user. It counts all the stepsy from the time

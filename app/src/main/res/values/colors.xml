@@ -9,4 +9,14 @@
     <color name="widgetPrimary">#161616</color>
     <color name="widgetSecondary">#292929</color>
     <color name="widgetBackground">#80FFFFFF</color>
+
+    <color name="colorAccentAmoled">#575757</color>
+    <color name="colorPrimaryAmoled">#282828</color>
+    <color name="colorOnPrimaryAmoled">#FFFFFF</color>
+    <color name="colorSurfaceAmoled">#FFFFFF</color>
+    <color name="colorOnSurfaceAmoled">#121212</color>
+    <color name="colorBackgroundAmoled">#FFFFFF</color>
+    <color name="widgetPrimaryAmoled">#161616</color>
+    <color name="widgetSecondaryAmoled">#292929</color>
+    <color name="widgetBackgroundAmoled">#80FFFFFF</color>
 </resources>

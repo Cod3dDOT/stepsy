@@ -1,16 +1,26 @@
 <resources>
 
     <!-- Theme -->
-    <string-array name="theme_entries">
+    <string-array name="theme_mode_entries">
         <item>System</item>
         <item>Light</item>
         <item>Dark</item>
     </string-array>
-
-    <string-array name="theme_values">
+    <string-array name="theme_mode_values">
         <item>system</item>
         <item>light</item>
         <item>dark</item>
+    </string-array>
+
+    <string-array name="theme_style_entries">
+        <item>App</item>
+        <item>AMOLED</item>
+        <item>Dynamic Colors</item>
+    </string-array>
+    <string-array name="theme_style_values">
+        <item>app</item>
+        <item>amoled</item>
+        <item>dynamic</item>
     </string-array>
 
     <!-- Date Format -->

@@ -32,7 +32,7 @@
         app:iconSpaceReserved="false">
 
         <ListPreference
-            android:key="language"
+            android:key="@string/key_app_language"
             android:title="@string/app_language"
             android:defaultValue="system"
             android:entries="@array/language_names"
@@ -41,16 +41,25 @@
             app:icon="@drawable/ic_language" />
 
         <ListPreference
-            android:key="theme"
+            android:key="@string/key_theme_mode"
             android:title="@string/theme"
             app:defaultValue="system"
-            app:entries="@array/theme_entries"
-            app:entryValues="@array/theme_values"
+            app:entries="@array/theme_mode_entries"
+            app:entryValues="@array/theme_mode_values"
             app:useSimpleSummaryProvider="true"
             app:icon="@drawable/ic_theme" />
 
         <ListPreference
-            android:key="unit_system"
+            android:key="@string/key_theme_style"
+            android:title="@string/theme"
+            app:defaultValue="system"
+            app:entries="@array/theme_style_entries"
+            app:entryValues="@array/theme_style_values"
+            app:useSimpleSummaryProvider="true"
+            app:icon="@drawable/ic_theme" />
+
+        <ListPreference
+            android:key="@string/key_unit_system"
             android:title="@string/unit_system"
             android:defaultValue="metric"
             android:entries="@array/unit_system_entries"
@@ -59,7 +68,7 @@
             app:icon="@drawable/ic_unit" />
 
         <ListPreference
-            android:key="date_format"
+            android:key="@string/key_date_format"
             android:title="@string/date_format"
             android:defaultValue="yyyy-MM-dd"
             android:entries="@array/date_format_options"
@@ -68,7 +77,7 @@
             app:icon="@drawable/ic_dateformat" />
 
         <ListPreference
-            android:key="first_day_of_week"
+            android:key="@string/key_first_day_of_the_week"
             android:title="@string/first_day_of_the_week"
             android:defaultValue="2"
             android:entries="@array/weekdays"

@@ -1,7 +1,7 @@
 <resources>
 
     <!-- Theme -->
-    <string-array name="theme_entries">
+    <string-array name="theme_mode_entries">
         <item>সিস্টেম</item>
         <item>হালকা</item>
         <item>গাঢ়</item>

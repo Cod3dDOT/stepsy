@@ -9,6 +9,6 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:showWeekNumber="false"
-    android:theme="@style/CalendarViewStyle"
+    android:theme="@style/Widget.MaterialComponents.MaterialCalendar"
     android:nestedScrollingEnabled="false"
     />

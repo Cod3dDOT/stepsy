@@ -1,31 +1,31 @@
 <resources>
-    <!-- Base Light Theme -->
-    <style name="Theme.BaseLight" parent="Theme.Material3.Light.NoActionBar">
+    <!-- Base Dark Theme -->
+    <style name="Theme.BaseDark" parent="Theme.Material3.Dark.NoActionBar">
         <!-- Default colors -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorOnPrimary">@color/colorOnPrimary</item>
         <item name="colorSurface">@color/colorSurface</item>
         <item name="colorOnSurface">@color/colorOnSurface</item>
         <item name="android:colorBackground">@color/colorBackground</item>
-        <!-- Add other default light colors -->
+        <!-- Add other default Dark colors -->
     </style>
 
-    <!-- AMOLED Light Theme -->
-    <style name="Theme.AmoledLight" parent="Theme.Material3.Light.NoActionBar">
-        <!-- Very light colors -->
+    <!-- AMOLED Dark Theme -->
+    <style name="Theme.AmoledDark" parent="Theme.Material3.Dark.NoActionBar">
+        <!-- Very Dark colors -->
         <item name="colorPrimary">@color/colorPrimaryAmoled</item>
         <item name="colorOnPrimary">@color/colorOnPrimaryAmoled</item>
         <item name="colorSurface">@color/colorSurfaceAmoled</item>
         <item name="colorOnSurface">@color/colorOnSurfaceAmoled</item>
         <item name="android:colorBackground">@color/colorBackgroundAmoled</item>
-        <!-- Add other very light colors -->
+        <!-- Add other very Dark colors -->
     </style>
 
-    <!-- Dynamic Light Theme -->
-    <style name="Theme.DynamicLight" parent="Theme.Material3.DynamicColors.Light.NoActionBar">
+    <!-- Dynamic Dark Theme -->
+    <style name="Theme.DynamicDark" parent="Theme.Material3.DynamicColors.Dark.NoActionBar">
         <!-- Dynamic colors are applied by the parent theme -->
     </style>
 
     <!-- The actual theme to be used - this will be set programmatically -->
-    <style name="Theme.Stepsy" parent="Theme.BaseLight" />
+    <style name="Theme.Stepsy" parent="Theme.BaseDark" />
 </resources>

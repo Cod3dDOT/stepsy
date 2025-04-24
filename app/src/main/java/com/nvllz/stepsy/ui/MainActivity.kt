@@ -28,16 +28,19 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
-import androidx.preference.PreferenceManager
 import androidx.transition.AutoTransition
 import androidx.transition.Transition
 import androidx.transition.TransitionManager
 import com.google.android.flexbox.FlexboxLayout
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.color.DynamicColors
 import com.nvllz.stepsy.R
 import com.nvllz.stepsy.service.MotionService
+import com.nvllz.stepsy.util.CalendarHelper
 import com.nvllz.stepsy.util.Database
-import com.nvllz.stepsy.util.Util
+import com.nvllz.stepsy.util.StepsHelper
+import com.nvllz.stepsy.util.ThemeHelper
+import com.nvllz.stepsy.util.preferences.PreferenceHelper
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -52,7 +55,6 @@ internal class MainActivity : AppCompatActivity() {
     private lateinit var mChart: Chart
     private lateinit var mTextViewChart: TextView
     private var mCurrentSteps: Int = 0
-    private var mSelectedMonth = Util.calendar
     private var isPaused = false
     private var currentSelectedButton: MaterialButton? = null
     private var isTodaySelected = true
@@ -71,13 +73,30 @@ internal class MainActivity : AppCompatActivity() {
     private var isExpanded = false
     private var currentSelectedYearButton: MaterialButton? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        Util.init(applicationContext)
-        super.onCreate(savedInstanceState)
-        Util.applyTheme(PreferenceManager.getDefaultSharedPreferences(this).getString("theme", "system")!!)
+    private lateinit var preferenceHelper: PreferenceHelper
+    private lateinit var calendarHelper: CalendarHelper
+    private lateinit var stepsHelper: StepsHelper
+    private lateinit var themeHelper: ThemeHelper
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_main)
+
+        DynamicColors.applyToActivityIfAvailable(this);
+
+        preferenceHelper = PreferenceHelper.getInstance(this)
+        calendarHelper = CalendarHelper(preferenceHelper)
+        stepsHelper = StepsHelper(preferenceHelper)
+        themeHelper = ThemeHelper.getInstance(this, preferenceHelper)
+
+        themeHelper.applyThemeMode()
+        themeHelper.applyThemeStyle(this)
+
+        val gearButton = findViewById<ImageButton>(R.id.gearButton)
+        gearButton.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
 
         mRangeStaticBox = findViewById(R.id.rangeStaticBox)
         mRangeDynamicBox = findViewById(R.id.rangeDynamicBox)
@@ -137,10 +156,6 @@ internal class MainActivity : AppCompatActivity() {
         mTextAvgPerDayHeader = findViewById(R.id.textAvgPerDayHeader)
         mTextAvgPerDayValue = findViewById(R.id.textAvgPerDayValue)
 
-        val gearButton = findViewById<ImageButton>(R.id.gearButton)
-        gearButton.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
 
         val fab = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.fab)
         if (isPaused) {
@@ -156,16 +171,16 @@ internal class MainActivity : AppCompatActivity() {
         mCalendarView = findViewById(R.id.calendar)
         mCalendarView.minDate = Database.getInstance(this).firstEntry.let {
             if (it == 0L)
-                Util.calendar.timeInMillis
+                calendarHelper.getTime()
             else
                 it
         }
-        mCalendarView.maxDate = Util.calendar.timeInMillis
-        mCalendarView.firstDayOfWeek = Util.firstDayOfWeek
+        mCalendarView.maxDate = calendarHelper.getTime()
+        mCalendarView.firstDayOfWeek = preferenceHelper.firstDayOfWeek.value
         mCalendarView.setOnDateChangeListener { _, year, month, dayOfMonth ->
-            mSelectedMonth.set(Calendar.YEAR, year)
-            mSelectedMonth.set(Calendar.MONTH, month)
-            mSelectedMonth.set(Calendar.DAY_OF_MONTH, dayOfMonth)
+            calendarHelper.set(Calendar.YEAR, year)
+            calendarHelper.set(Calendar.MONTH, month)
+            calendarHelper.set(Calendar.DAY_OF_MONTH, dayOfMonth)
 
             updateChart()
         }
@@ -343,7 +358,7 @@ internal class MainActivity : AppCompatActivity() {
         val (startTime, endTime) = when (range) {
             "WEEK" -> {
                 mTextViewTopHeader.text = getString(R.string.header_week)
-                calendar.firstDayOfWeek = Util.firstDayOfWeek
+                calendar.firstDayOfWeek = preferenceHelper.firstDayOfWeek.value
                 calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
                 calendar.set(Calendar.HOUR_OF_DAY, 0)
                 calendar.set(Calendar.MINUTE, 0)
@@ -421,8 +436,8 @@ internal class MainActivity : AppCompatActivity() {
 
         mTextViewSteps.text = resources.getQuantityString(R.plurals.steps_text, totalSteps, totalSteps)
         mTextViewMeters.text = String.format(getString(R.string.distance_today),
-            Util.stepsToDistance(totalSteps),
-            Util.getDistanceUnitString())
+            stepsHelper.stepsToDistance(totalSteps),
+            stepsHelper.getDistanceUnitString())
 
         mTextViewCalories.text = ""
         mTextAvgPerDayHeader.visibility = View.VISIBLE
@@ -431,8 +446,8 @@ internal class MainActivity : AppCompatActivity() {
         mTextAvgPerDayValue.text = String.format(
             getString(R.string.steps_format),
             avgSteps.toString(),
-            Util.stepsToDistance(avgSteps),
-            Util.getDistanceUnitString()
+            stepsHelper.stepsToDistance(avgSteps),
+            stepsHelper.getDistanceUnitString()
         )
     }
 
@@ -502,8 +517,8 @@ internal class MainActivity : AppCompatActivity() {
 
         mTextViewSteps.text = resources.getQuantityString(R.plurals.steps_text, yearSteps, yearSteps)
         mTextViewMeters.text = String.format(getString(R.string.distance_today),
-            Util.stepsToDistance(yearSteps),
-            Util.getDistanceUnitString())
+            stepsHelper.stepsToDistance(yearSteps),
+            stepsHelper.getDistanceUnitString())
 
         mTextViewCalories.text = ""
         mTextAvgPerDayHeader.visibility = View.VISIBLE
@@ -512,13 +527,13 @@ internal class MainActivity : AppCompatActivity() {
         mTextAvgPerDayValue.text = String.format(
             getString(R.string.steps_format),
             avgSteps.toString(),
-            Util.stepsToDistance(avgSteps),
-            Util.getDistanceUnitString()
+            stepsHelper.stepsToDistance(avgSteps),
+            stepsHelper.getDistanceUnitString()
         )
     }
 
     private fun formatToSelectedDateFormat(dateInMillis: Long): String {
-        val sdf = SimpleDateFormat(Util.dateFormatString, Locale.getDefault())
+        val sdf = SimpleDateFormat(preferenceHelper.dateFormat.value, Locale.getDefault())
         return sdf.format(Date(dateInMillis))
     }
 
@@ -614,11 +629,11 @@ internal class MainActivity : AppCompatActivity() {
             // Only update today's steps if "Today" is selected
 
             mTextViewMeters.text = String.format(getString(R.string.distance_today),
-                Util.stepsToDistance(steps),
-                Util.getDistanceUnitString())
+                stepsHelper.stepsToDistance(steps),
+                stepsHelper.getDistanceUnitString())
             mTextViewSteps.text = resources.getQuantityString(R.plurals.steps_text, steps, steps)
             mTextViewCalories.text = String.format(getString(R.string.calories),
-                Util.stepsToCalories(steps))
+                stepsHelper.stepsToCalories(steps))
             mTextAvgPerDayHeader.visibility = View.GONE
             mTextAvgPerDayValue.visibility = View.GONE
             mTextAvgPerDayHeader.text = ""
@@ -627,7 +642,7 @@ internal class MainActivity : AppCompatActivity() {
 
         // Update calendar max date for the case that new day started
         if (!DateUtils.isToday(mCalendarView.maxDate)) {
-            mCalendarView.maxDate = Util.calendar.timeInMillis
+            mCalendarView.maxDate = calendarHelper.getTime()
         }
 
         // If a year is selected, refresh its data to get latest steps
@@ -637,7 +652,7 @@ internal class MainActivity : AppCompatActivity() {
         }
 
         // If selected week is the current week, update the diagram and cards with today's stepsy
-        if (mSelectedMonth.get(Calendar.WEEK_OF_YEAR) == Calendar.getInstance().get(Calendar.WEEK_OF_YEAR)) {
+        if (calendarHelper.getWeek() == Calendar.getInstance().get(Calendar.WEEK_OF_YEAR)) {
             mChart.setCurrentSteps(steps)
             mChart.update()
         }
@@ -682,9 +697,9 @@ internal class MainActivity : AppCompatActivity() {
     private fun updateChart() {
         val timeZone = getDeviceTimeZone()
 
-        mTextViewDayHeader.text = formatToSelectedDateFormat(mSelectedMonth.timeInMillis)
+        mTextViewDayHeader.text = formatToSelectedDateFormat(calendarHelper.getTime())
 
-        val dayEntry = getDayEntry(mSelectedMonth.timeInMillis)
+        val dayEntry = getDayEntry(calendarHelper.getTime())
 
         val stepsPlural = dayEntry?.let {
             resources.getQuantityString(
@@ -698,22 +713,22 @@ internal class MainActivity : AppCompatActivity() {
             mTextViewDayDetails.text = String.format(
                 getString(R.string.steps_day_display),
                 stepsPlural,
-                Util.stepsToDistance(dayEntry.steps),
-                Util.getDistanceUnitString(),
-                Util.stepsToCalories(dayEntry.steps)
+                stepsHelper.stepsToDistance(dayEntry.steps),
+                stepsHelper.getDistanceUnitString(),
+                stepsHelper.stepsToCalories(dayEntry.steps)
             )
         } else {
             mTextViewDayDetails.text = String.format(
                 getString(R.string.steps_day_display),
                 resources.getQuantityString(R.plurals.steps_text,0,0),
                 0.0,
-                Util.getDistanceUnitString(),
+                stepsHelper.getDistanceUnitString(),
                 0
             )
         }
 
         val startOfMonth = Calendar.getInstance(timeZone).apply {
-            timeInMillis = mSelectedMonth.timeInMillis
+            timeInMillis = calendarHelper.getTime()
             set(Calendar.DAY_OF_MONTH, 1)
         }
 
@@ -730,20 +745,20 @@ internal class MainActivity : AppCompatActivity() {
         mTextViewMonthTotal.text = String.format(
             getString(R.string.steps_format),
             monthSteps.toString(),
-            Util.stepsToDistance(monthSteps),
-            Util.getDistanceUnitString()
+            stepsHelper.stepsToDistance(monthSteps),
+            stepsHelper.getDistanceUnitString()
         )
 
         mTextViewMonthAverage.text = String.format(
             getString(R.string.steps_format),
             avgSteps.toString(),
-            Util.stepsToDistance(avgSteps),
-            Util.getDistanceUnitString()
+            stepsHelper.stepsToDistance(avgSteps),
+            stepsHelper.getDistanceUnitString()
         )
 
         val min = Calendar.getInstance().apply {
-            timeInMillis = mSelectedMonth.timeInMillis
-            firstDayOfWeek = Util.firstDayOfWeek
+            timeInMillis = calendarHelper.getTime()
+            firstDayOfWeek = calendarHelper.getFirstDayOfWeek()
             set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
@@ -773,7 +788,7 @@ internal class MainActivity : AppCompatActivity() {
             mChart.setDiagramEntry(entry)
         }
 
-        if (mSelectedMonth.get(Calendar.WEEK_OF_YEAR) == Calendar.getInstance().get(Calendar.WEEK_OF_YEAR)) {
+        if (calendarHelper.getWeek() == Calendar.getInstance().get(Calendar.WEEK_OF_YEAR)) {
             mChart.setCurrentSteps(mCurrentSteps)
         }
         mChart.update()

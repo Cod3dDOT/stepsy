@@ -1,7 +1,7 @@
 <resources>
 
     <!-- Thème -->
-    <string-array name="theme_entries">
+    <string-array name="theme_mode_entries">
         <item>Système</item>
         <item>Clair</item>
         <item>Sombre</item>

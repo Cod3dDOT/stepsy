@@ -6,9 +6,10 @@ package com.nvllz.stepsy
 
 import android.text.format.DateUtils
 import android.util.SparseArray
+import com.nvllz.stepsy.service.MotionActivity
 import com.nvllz.stepsy.service.MotionService
 import com.nvllz.stepsy.util.Database
-import com.nvllz.stepsy.util.Util
+import com.nvllz.stepsy.util.StepsHelper
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
@@ -33,7 +34,7 @@ internal class AppTest {
     @LooperMode(LooperMode.Mode.LEGACY)
     @Throws(Exception::class)
     internal fun testService() {
-        val mCurrentDate = Util.calendar.timeInMillis - DateUtils.DAY_IN_MILLIS // -24h, previous day
+        val mCurrentDate = StepsHelper.calendar.timeInMillis - DateUtils.DAY_IN_MILLIS // -24h, previous day
         var mCurrentSteps = Random().nextInt(10000) // random stepsy between 0-10000
 
         ShadowSystemClock.setNanoTime(TimeUnit.NANOSECONDS.convert(mCurrentDate, TimeUnit.MILLISECONDS))
@@ -45,7 +46,7 @@ internal class AppTest {
 
         // Generate some database entries
         val random = Random()
-        val cal = Util.calendar
+        val cal = StepsHelper.calendar
         cal.add(Calendar.DAY_OF_MONTH, -101)
         for (i in 0..98) {
             cal.add(Calendar.DAY_OF_MONTH, 1)
@@ -108,7 +109,7 @@ internal class AppTest {
         Assert.assertEquals(1, motionActivitySecond.steps)
 
         // change clock to the next day
-        ShadowSystemClock.setNanoTime(TimeUnit.NANOSECONDS.convert(Util.calendar.timeInMillis, TimeUnit.MILLISECONDS))
+        ShadowSystemClock.setNanoTime(TimeUnit.NANOSECONDS.convert(StepsHelper.calendar.timeInMillis, TimeUnit.MILLISECONDS))
 
         // simulate sensor event
         m.invoke(service, mCurrentSteps)

@@ -1,7 +1,7 @@
 <resources>
 
     <!-- Theme -->
-    <string-array name="theme_entries">
+    <string-array name="theme_mode_entries">
         <item>Sistem varsayılanı</item>
         <item>Aydınlık</item>
         <item>Karanlık</item>

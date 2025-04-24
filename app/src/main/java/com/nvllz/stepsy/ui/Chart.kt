@@ -21,7 +21,6 @@ import com.github.mikephil.charting.data.BarEntry
 import com.github.mikephil.charting.formatter.ValueFormatter
 import com.nvllz.stepsy.R
 import com.nvllz.stepsy.util.Database
-import com.nvllz.stepsy.util.Util
 import java.util.*
 
 /**
@@ -100,7 +99,7 @@ internal class Chart : BarChart {
 
     private fun getDayOfWeekFromTimestamp(timestamp: Long): Int {
         val cal = Calendar.getInstance()
-        cal.firstDayOfWeek = Util.firstDayOfWeek
+//        cal.firstDayOfWeek = Util.firstDayOfWeek
         cal.timeInMillis = timestamp
 
         val dayIndex = (cal.get(Calendar.DAY_OF_WEEK) - cal.firstDayOfWeek + 7) % 7
@@ -197,8 +196,9 @@ internal class Chart : BarChart {
     internal class DayFormatter : ValueFormatter() {
         override fun getFormattedValue(value: Float): String {
             val cal = Calendar.getInstance()
-            cal.firstDayOfWeek = Util.firstDayOfWeek
-            cal.set(Calendar.DAY_OF_WEEK, ((value.toInt() + Util.firstDayOfWeek - 1) % 7 + 1))
+//            cal.firstDayOfWeek = Util.firstDayOfWeek
+//            cal.set(Calendar.DAY_OF_WEEK, ((value.toInt() + Util.firstDayOfWeek - 1) % 7 + 1))
+            cal.set(Calendar.DAY_OF_WEEK, ((value.toInt() - 1) % 7 + 1))
             return cal.getDisplayName(Calendar.DAY_OF_WEEK, Calendar.SHORT, Locale.getDefault()) ?: ""
         }
     }
